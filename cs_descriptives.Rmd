@@ -1,0 +1,100 @@
+---
+title: "cs_descriptives"
+author: "Dominique Tzou"
+date: "2026-11-08"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r libraries, echo=FALSE}
+library(tidyverse)
+library(dplyr)
+library(knitr)
+```
+
+
+```{r import, echo=FALSE}
+
+suicide_pop = 
+read_csv(file = "./data/suicide_pop.csv",
+na = c("NA", ".", ""))|>
+janitor::clean_names() 
+
+country_code_names = 
+read_csv(file = "./data/country_codes",
+na = c("NA", ".", ""))|>
+janitor::clean_names() 
+
+```
+
+```{r, echo=FALSE}
+country_total_suicide_mortality = 
+suicide_pop |> 
+  filter( sex == "Both sexes", cause == "All") |> 
+  mutate( suicide_mortality1 = deaths1/new_pop1) |>
+  group_by(country, covid)|> 
+  summarize(mean_sm1 = mean(suicide_mortality1, na.rm = TRUE) )|> 
+  mutate( covid = as.factor(covid))|>
+  pivot_wider(
+    names_from = "covid", 
+  values_from = "mean_sm1", 
+  names_prefix = "covid_") |> 
+   mutate( diff_sm1 = (covid_2-covid_1)/covid_1) |> 
+  left_join(country_code_names, by ="country") |>
+  select(name, everything()) |> 
+  mutate(change_increase = diff_sm1 >0 )
+
+total_suicide_mortality = 
+  country_total_suicide_mortality|> 
+  group_by()|>
+  summarize(mean_covid_1 = mean(covid_1, na.rm = TRUE), 
+            mean_covid_2 = mean(covid_2, na.rm = TRUE),
+            diff_total = (mean_covid_2-mean_covid_1)/mean_covid_1)
+
+
+
+```
+
+
+__Suicide Mortality by Country__
+
+The average suicide mortality for 2017-2019 and 2020-2022 was used to calculate pre and post covid suicide mortality rates. 
+
+diff_sm1 = the percent change difference between pre and post covid suicide mortality,
+formula = (Post - Pre)/ Pre
+
+change_increase = flags whether suicide mortality increased or decreased 
+
+```{r,echo=FALSE}
+country_total_suicide_mortality |>
+  rename(  pre_covid = covid_1 , post_covid = covid_2 )|>
+  knitr::kable()
+
+country_total_suicide_mortality |> 
+  group_by() |>
+  count(change_increase) |>
+  knitr::kable()
+
+```
+
+In 36 countries, suicide mortality decreased.
+In 28 countries, suicide mortality increased. 
+In 17 countries, suicide mortality data was unavailable for either pre or post covid
+
+__Overall Multinational Suicide Mortality__
+
+Average multinational suicide mortality, pre and post covid. 
+formula = (Post - Pre)/ Pre
+
+Diff_total indicates overall decrease. 
+
+```{r, echo=FALSE}
+total_suicide_mortality |>  
+  rename(  mean_pre_covid = mean_covid_1 , mean_post_covid = mean_covid_2 ) |> 
+  knitr::kable()
+```
+
